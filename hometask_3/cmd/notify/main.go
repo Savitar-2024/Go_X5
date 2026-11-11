@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-	// TODO: домашняя работа. Покажите успешную рассылку, пустой текст,
 	fmt.Println("=== 1. Успешная отправка ===")
 
 	email := &practice.EmailNotifier{

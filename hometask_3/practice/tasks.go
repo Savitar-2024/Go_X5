@@ -62,7 +62,6 @@ func (n *BrokenNotifier) Send(message string) error {
 	panic("драйвер канала повреждён")
 }
 
-// TODO: создайте одну общую ошибку с текстом "пустое сообщение".
 var ErrEmptyMessage = errors.New("пустое сообщение")
 
 func (e *SendError) Error() string {
@@ -86,8 +85,6 @@ func (n *EmailNotifier) Send(message string) error {
 }
 
 func (n *PushNotifier) Send(message string) error {
-	// TODO: шаг 1. До записи проверьте пустое сообщение.
-	// TODO: дома добавьте проверку DeviceID через *SendError.
 	if message == "" {
 		return ErrEmptyMessage
 	}
@@ -113,7 +110,6 @@ func Dispatch(all []Notifier, message string) error {
 }
 
 func SafeSend(n Notifier, message string) (err error) {
-	// TODO: шаг 3. Превратите панику в ошибку через defer и recover.
 	defer func() {
 		if p := recover(); p != nil {
 			err = fmt.Errorf("%w: %v", ErrNotifierPanic, p)
@@ -124,7 +120,6 @@ func SafeSend(n Notifier, message string) (err error) {
 }
 
 func SafeDispatch(all []Notifier, message string) []error {
-	// TODO: шаг 3. Вызовите SafeSend для каждого канала.
 	var failures []error
 
 	for _, n := range all {
