@@ -8,6 +8,7 @@ import (
 	"example.com/order-service/internal/order"
 	"example.com/order-service/internal/repository/memory"
 	"example.com/order-service/internal/service"
+	"github.com/stretchr/testify/require"
 )
 
 func newService() *service.OrderService {
@@ -56,6 +57,20 @@ func TestCreate(t *testing.T) {
 			name: "invalid price",
 			input: order.CreateOrderInput{Items: []order.Item{
 				{Name: "Book", Quantity: 1, Price: -100},
+			}},
+			wantErr: order.ErrInvalidOrder,
+		},
+		{
+			name: "negative quantity",
+			input: order.CreateOrderInput{Items: []order.Item{
+				{Name: "Book", Quantity: -1, Price: 100},
+			}},
+			wantErr: order.ErrInvalidOrder,
+		},
+		{
+			name: "zero price",
+			input: order.CreateOrderInput{Items: []order.Item{
+				{Name: "Book", Quantity: 1, Price: 0},
 			}},
 			wantErr: order.ErrInvalidOrder,
 		},
@@ -182,6 +197,14 @@ func TestUpdateStatus(t *testing.T) {
 			wantErr: order.ErrInvalidStatusTransition,
 		},
 		{
+			name: "cancelled is final",
+			from: []order.Status{
+				order.StatusCancelled,
+			},
+			to:      order.StatusProcessing,
+			wantErr: order.ErrInvalidStatusTransition,
+		},
+		{
 			name:    "same status",
 			to:      order.StatusNew,
 			wantErr: order.ErrInvalidStatusTransition,
@@ -260,4 +283,45 @@ func TestHistory(t *testing.T) {
 	if !errors.Is(err, order.ErrOrderNotFound) {
 		t.Errorf("got error %v, want ErrOrderNotFound", err)
 	}
+}
+
+type mockRepository struct {
+	created order.Order
+	called  bool
+}
+
+func (m *mockRepository) Create(_ context.Context, o order.Order) (order.Order, error) {
+	m.called = true
+	o.ID = 42
+	m.created = o
+	return o, nil
+}
+
+func (m *mockRepository) GetByID(_ context.Context, _ int64) (order.Order, error) {
+	return order.Order{}, order.ErrOrderNotFound
+}
+
+func (m *mockRepository) List(_ context.Context) ([]order.Order, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) Update(_ context.Context, _ order.Order) (order.Order, error) {
+	return order.Order{}, order.ErrOrderNotFound
+}
+
+var _ order.Repository = (*mockRepository)(nil)
+
+func TestCreateWithMockRepository(t *testing.T) {
+	repo := &mockRepository{}
+	s := service.NewOrderService(repo)
+
+	got, err := s.Create(context.Background(), validInput())
+
+	require.NoError(t, err)
+	require.True(t, repo.called)
+	require.Equal(t, int64(42), got.ID)
+	require.Equal(t, int64(1300), got.TotalPrice)
+	require.Equal(t, order.StatusNew, got.Status)
+	require.Len(t, repo.created.Items, 2)
+	require.Len(t, got.History, 1)
 }
